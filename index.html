@@ -257,6 +257,14 @@ html,body{height:100%;font-family:'Noto Sans KR',sans-serif;background:#F8F4FF;c
         </div>
         <button class="btn bo bw" id="btn-change-pw"><i class="ti ti-key"></i> 변경</button>
       </div>
+
+      <div class="card">
+        <div class="card-hd"><i class="ti ti-settings"></i>계정 및 초기화</div>
+        <div style="font-size:11px;color:var(--tx2);margin-bottom:10px" id="current-user-email">로그인 정보 로딩 중...</div>
+        <button class="btn bs bw" id="btn-logout" style="margin-bottom:8px"><i class="ti ti-logout"></i> 로그아웃</button>
+        <button class="btn bw" id="btn-reset-all" style="background:#FEE8EE;color:#A83050;border:1.5px solid rgba(168,48,80,0.18)"><i class="ti ti-refresh"></i> 설정 초기화</button>
+        <div style="font-size:10px;color:var(--tx3);margin-top:6px">⚠️ 초기화하면 학교 정보·양식 설정이 기본값으로 돌아갑니다. 지도안·참관록 데이터는 유지됩니다.</div>
+      </div>
     </div>
 
     <!-- QR -->
@@ -598,9 +606,7 @@ function renderObsForm() {
 
   // 수업 선택 옵션 채우기 - 참관자 유형에 맞는 수업만
   const obsType = document.querySelector('input[name="obs-type"]:checked')?.value || 'parent';
-  const sel = document.getElementById('obs-lesson');
-  const filtered = DB.lessons.filter(l=>!l.target||l.target==='all'||(l.target===obsType));
-  sel.innerHTML = '<option value="">수업 선택 (선택사항)</option>' + filtered.map(l=>`<option value="${l.id}">${l.grade} ${l.cls} ${l.subject} ${l.period||''} - ${l.teacher}</option>`).join('');
+  // 수업 선택 항목 제거됨
 }
 
 // ── 양식 편집기 ──
@@ -658,7 +664,7 @@ async function submitObs() {
     cls: document.getElementById('obs-cls')?.value||'',
     org: document.getElementById('obs-org')?.value||'',
     pos: document.getElementById('obs-pos')?.value||'',
-    lessonId: document.getElementById('obs-lesson')?.value||'',
+
     answers,
     createdAt: new Date().toISOString()
   };
@@ -891,14 +897,20 @@ async function rmLesson(id) {
 }
 
 async function rmObs(id) {
-  if(!confirm('참관록을 삭제할까요?')) return;
+  if(!window.confirm('참관록을 삭제할까요?')) return;
   try {
-    await fbDel(`observations/${id}`);
+    // schools/{schoolId}/observations/{id} 경로로 삭제
+    const { deleteDoc, doc: fsDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    const path = `schools/${currentSchoolId}/observations/${id}`;
+    await deleteDoc(fsDoc(db, ...path.split('/')));
     DB.obs = DB.obs.filter(o=>o.id!==id);
     document.getElementById('st-o').textContent = DB.obs.length;
     renderObsList();
     toast('🗑️ 참관록 삭제됨');
-  } catch(e) { toast('❌ 삭제 실패: '+e.message); }
+  } catch(e) { 
+    console.error('삭제 오류:', e);
+    toast('❌ 삭제 실패: '+e.message); 
+  }
 }
 
 // ── 학교 정보 저장 ──
@@ -1017,6 +1029,19 @@ async function changePw() {
   document.getElementById('pw1').value=''; document.getElementById('pw2').value='';
 }
 
+async function resetAll() {
+  if(!window.confirm('설정을 초기화할까요?\n학교 정보와 참관록 양식이 기본값으로 돌아갑니다.\n지도안·참관록 데이터는 유지됩니다.')) return;
+  try {
+    DB.info = {title:'수업 참관록',school:'',date:'',place:'',msg:''};
+    DB.formItems = DEFAULT_FORM;
+    await fbSet('config/info', DB.info);
+    await fbSet('config/form', {items: DEFAULT_FORM});
+    renderAll();
+    renderObsForm();
+    toast('✅ 설정 초기화 완료');
+  } catch(e) { toast('❌ 초기화 실패'); }
+}
+
 // ── 탭 이동 ──
 function go(p) {
   document.querySelectorAll('.pg').forEach(e=>e.classList.remove('on'));
@@ -1085,6 +1110,13 @@ document.getElementById('btn-add-radio').addEventListener('click',()=>addFormIte
 document.getElementById('btn-grid-cancel').addEventListener('click',()=>cm('ov-grid'));
 document.getElementById('btn-grid-ok').addEventListener('click',saveGrid);
 document.getElementById('btn-change-pw').addEventListener('click',changePw);
+document.getElementById('btn-logout').addEventListener('click',async()=>{
+  if(!window.confirm('로그아웃 할까요?')) return;
+  await googleLogout();
+  setMode('visitor');
+  toast('✅ 로그아웃 완료');
+});
+document.getElementById('btn-reset-all').addEventListener('click',resetAll);
 
 // 탭 버튼
 ['home','lessons','observe','admin','qr'].forEach(p=>{
@@ -1126,6 +1158,8 @@ onAuthStateChanged(auth, async (user) => {
       document.getElementById('nb-home').classList.remove('on');
     }
     toast('✅ '+( user.displayName||user.email)+' 로그인');
+    const emailEl = document.getElementById('current-user-email');
+    if(emailEl) emailEl.textContent = '로그인: ' + (user.displayName||user.email);
   } else {
     om('ov-google-login');
   }
