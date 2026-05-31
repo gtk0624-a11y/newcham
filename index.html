@@ -370,9 +370,10 @@ html,body{height:100%;font-family:'Noto Sans KR',sans-serif;background:#F8F4FF;c
   <div class="mod" style="width:96%">
     <div class="mh"><i class="ti ti-clipboard" style="color:var(--vt3)"></i>참관록 상세</div>
     <div id="obs-det"></div>
-    <div class="g2" style="margin-top:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">
       <button class="btn bs" id="btn-obs-close">닫기</button>
-      <button class="btn bp" id="btn-obs-prt"><i class="ti ti-printer"></i> 인쇄·PDF</button>
+      <button class="btn bp" id="btn-obs-prt"><i class="ti ti-printer"></i> 인쇄</button>
+      <button class="btn bg_" id="btn-obs-dl"><i class="ti ti-download"></i> 저장</button>
     </div>
   </div>
 </div>
@@ -716,6 +717,7 @@ function renderObsList() {
         <div style="display:flex;gap:5px">
           <button class="btn bs bsm" data-fn="viewObs" data-arg="${o.id}"><i class="ti ti-eye"></i></button>
           <button class="btn bp bsm" data-fn="prtSingle" data-arg="${o.id}"><i class="ti ti-printer"></i></button>
+          <button class="btn bsm" style="background:#FEE8EE;color:#A83050;border:1.5px solid rgba(168,48,80,0.18)" data-fn="rmObs" data-arg="${o.id}"><i class="ti ti-trash"></i></button>
         </div>
       </div>
     </div>`).join('');
@@ -785,7 +787,45 @@ function doPrint(list) {
   toast('🖨️ 인쇄 창 → PDF로 저장 선택');
 }
 
-function prtSingle(id) { const o=DB.obs.find(x=>x.id===id); if(o) doPrint([o]); }
+function prtSingle(id) { 
+  const o=DB.obs.find(x=>x.id===id); 
+  if(o) {
+    // 인쇄 창에서 PDF로 저장 가능
+    doPrint([o]);
+  }
+}
+
+// PDF 다운로드 (개별)
+function downloadPdf(id) {
+  const o = DB.obs.find(x=>x.id===id);
+  if(!o) return;
+  const inf = DB.info;
+  const content = buildPrintPage(o);
+  const html = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+    <style>
+      body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;font-size:11pt;color:#000;margin:15mm}
+      .pp{padding:8px 0}.ph{font-size:17pt;font-weight:800;text-align:center;padding:6px 0 4px;border-bottom:2.5px solid #5830A8;margin-bottom:8px}
+      .psub{font-size:9pt;text-align:center;color:#604880;margin-bottom:10px}
+      .pt{width:100%;border-collapse:collapse;margin-bottom:8px;font-size:10.5pt}
+      .pt td,.pt th{border:1px solid #888;padding:5px 7px;vertical-align:top}
+      .pl{background:#EDE0FF;font-weight:700;width:22%}
+      .psign{text-align:right;margin-top:10px;font-size:10pt}
+      table{width:100%;border-collapse:collapse}
+      th,td{border:1px solid #888;padding:4px 6px}
+      th{background:#EDE0FF}
+      @page{size:A4;margin:15mm}
+    </style>
+  </head><body>${content}</body></html>`;
+  
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `참관록_${o.name||'unknown'}_${(o.createdAt||'').slice(0,10)}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('💾 파일 다운로드 완료! 브라우저에서 열어 PDF로 저장하세요');
+}
 function prtAll() {
   const list = S.filt==='all' ? DB.obs : DB.obs.filter(o=>o.obsType===S.filt);
   doPrint(list);
@@ -848,6 +888,17 @@ async function rmLesson(id) {
     renderAll(); renderObsForm();
     toast('🗑️ 삭제됨');
   } catch(e) { toast('❌ 오류'); }
+}
+
+async function rmObs(id) {
+  if(!confirm('참관록을 삭제할까요?')) return;
+  try {
+    await fbDel(`observations/${id}`);
+    DB.obs = DB.obs.filter(o=>o.id!==id);
+    document.getElementById('st-o').textContent = DB.obs.length;
+    renderObsList();
+    toast('🗑️ 참관록 삭제됨');
+  } catch(e) { toast('❌ 삭제 실패: '+e.message); }
 }
 
 // ── 학교 정보 저장 ──
@@ -1021,6 +1072,7 @@ document.getElementById('btn-lesson-cancel').addEventListener('click',()=>cm('ov
 document.getElementById('btn-lesson-save').addEventListener('click',addLesson);
 document.getElementById('btn-obs-close').addEventListener('click',()=>cm('ov-obs'));
 document.getElementById('btn-obs-prt').addEventListener('click',()=>{const o=DB.obs.find(x=>x.id===S.curId);if(o){cm('ov-obs');setTimeout(()=>doPrint([o]),300);}});
+document.getElementById('btn-obs-dl').addEventListener('click',()=>{if(S.curId){cm('ov-obs');downloadPdf(S.curId);}});
 document.getElementById('btn-regen-qr').addEventListener('click',makeQR);
 document.getElementById('btn-share-qr').addEventListener('click',shareURL);
 document.getElementById('qt-all').addEventListener('click',()=>swQR('all'));
@@ -1046,6 +1098,7 @@ document.body.addEventListener('click',e=>{
   const fn = el.getAttribute('data-fn');
   const arg = el.getAttribute('data-arg');
   if(fn==='rmLesson') rmLesson(arg);
+  else if(fn==='rmObs') rmObs(arg);
   else if(fn==='viewObs') viewObs(arg);
   else if(fn==='prtSingle') prtSingle(arg);
   else if(fn==='rmFormItem') rmFormItem(arg);
