@@ -184,6 +184,13 @@ html,body{height:100%;font-family:'Noto Sans KR',sans-serif;background:#F8F4FF;c
             <input class="ip" id="obs-pos" placeholder="직위">
           </div>
         </div>
+        <div class="fg" id="wrap-lesson">
+          <label class="lb">참관 수업 선택</label>
+          <select class="ip sl" id="obs-lesson">
+            <option value="">수업을 선택하세요</option>
+          </select>
+          <div style="font-size:10px;color:var(--tx3);margin-top:4px">지도안이 등록된 수업 목록입니다</div>
+        </div>
 
       </div>
 
@@ -602,9 +609,21 @@ function renderObsForm() {
     return '';
   }).join('');
 
-  // 수업 선택 옵션 채우기 - 참관자 유형에 맞는 수업만
+  // 참관자 유형 + 수업 선택 목록 채우기
   const obsType = document.querySelector('input[name="obs-type"]:checked')?.value || 'parent';
-  // 수업 선택 항목 제거됨
+  const sel = document.getElementById('obs-lesson');
+  if(sel) {
+    const filtered = DB.lessons.filter(l=>!l.target||l.target==='all'||(l.target===obsType));
+    if(filtered.length > 0) {
+      sel.innerHTML = '<option value="">수업을 선택하세요</option>' + 
+        filtered.sort((a,b)=>(a.time||'').localeCompare(b.time||'')).map(l=>
+          `<option value="${l.id}">${l.time||''} ${l.period||''} | ${l.teacher} | ${l.grade} ${l.cls} ${l.subject}</option>`
+        ).join('');
+      document.getElementById('wrap-lesson').style.display = 'block';
+    } else {
+      sel.innerHTML = '<option value="">등록된 수업 없음</option>';
+    }
+  }
 }
 
 // ── 양식 편집기 ──
@@ -735,6 +754,7 @@ function viewObs(id) {
     <tr><td style="border:1px solid #ccc;padding:5px;font-weight:700;background:var(--vt)">구분</td><td style="border:1px solid #ccc;padding:5px">${o.obsType==='peer'?'동료장학':'학부모'}</td></tr>
     ${o.grade?`<tr><td style="border:1px solid #ccc;padding:5px;font-weight:700;background:var(--vt)">학년·반</td><td style="border:1px solid #ccc;padding:5px">${o.grade} ${o.cls}</td></tr>`:''}
     ${o.org?`<tr><td style="border:1px solid #ccc;padding:5px;font-weight:700;background:var(--vt)">소속</td><td style="border:1px solid #ccc;padding:5px">${o.org} ${o.pos}</td></tr>`:''}
+    ${o.lessonLabel?`<tr><td style="border:1px solid #ccc;padding:5px;font-weight:700;background:var(--vt)">참관 수업</td><td style="border:1px solid #ccc;padding:5px">${o.lessonLabel}</td></tr>`:''}
   </table>`;
 
   if(o.answers) {
