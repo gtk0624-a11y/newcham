@@ -331,6 +331,13 @@ html,body{height:100%;font-family:'Noto Sans KR',sans-serif;background:#F8F4FF;c
 <div class="ov" id="ov-lesson">
   <div class="mod">
     <div class="mh"><i class="ti ti-file-plus" style="color:var(--vt3)"></i>지도안 등록</div>
+    <div class="fg"><label class="lb">참관 대상 *</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="radio" name="lf-target" value="parent" checked> 👨‍👩‍👧 학부모</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="radio" name="lf-target" value="peer"> 👩‍🏫 동료장학</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer"><input type="radio" name="lf-target" value="all"> 🌸 전체</label>
+      </div>
+    </div>
     <div class="fg"><label class="lb">담당 교사 *</label><input class="ip" id="lf-t" placeholder="예: 김○○"></div>
     <div class="fg"><label class="lb">학년·반 *</label>
       <div class="g2">
@@ -342,7 +349,12 @@ html,body{height:100%;font-family:'Noto Sans KR',sans-serif;background:#F8F4FF;c
       <select class="ip sl" id="lf-s"><option value="">교과</option><option>국어</option><option>수학</option><option>사회</option><option>과학</option><option>도덕</option><option>음악</option><option>미술</option><option>체육</option><option>영어</option><option>실과</option><option>창체</option></select>
     </div>
     <div class="fg"><label class="lb">단원·제재 *</label><input class="ip" id="lf-u" placeholder="예: 3. 마음을 나누며 대화해요"></div>
-    <div class="fg"><label class="lb">수업 시간</label><input class="ip" id="lf-tm" type="time" value="09:00"></div>
+    <div class="fg"><label class="lb">수업 시간 및 교시</label>
+      <div class="g2">
+        <input class="ip" id="lf-tm" type="time" value="09:00">
+        <select class="ip sl" id="lf-period"><option value="">교시</option><option>1교시</option><option>2교시</option><option>3교시</option><option>4교시</option><option>5교시</option><option>6교시</option></select>
+      </div>
+    </div>
     <div class="fg"><label class="lb">장소</label><select class="ip sl" id="lf-r"><option>해당 교실</option><option>음악실</option><option>과학실</option><option>체육관</option><option>컴퓨터실</option><option>미술실</option></select></div>
     <div class="fg"><label class="lb">Google Drive 링크 (선택)</label><input class="ip" id="lf-drive" placeholder="https://drive.google.com/file/d/..."></div>
     <div id="add-status" style="font-size:11px;text-align:center;margin-bottom:8px;min-height:16px"></div>
@@ -514,11 +526,15 @@ function rHome() {
   document.getElementById('st-t').textContent = [...new Set(DB.lessons.map(l=>l.teacher))].length;
   const el = document.getElementById('home-sched');
   if(!DB.lessons.length) { el.innerHTML='<div style="text-align:center;padding:16px;color:var(--tx3);font-size:11px">등록된 수업 없음</div>'; return; }
+  const targetColor = {parent:'var(--pk)',peer:'var(--yw)',all:'var(--mint)'};
+  const targetLabel = {parent:'👨‍👩‍👧 학부모',peer:'👩‍🏫 동료장학',all:'🌸 전체'};
   el.innerHTML = [...DB.lessons].sort((a,b)=>(a.time||'').localeCompare(b.time||'')).map(l=>`
     <div class="les-card">
-      <div class="les-time">${l.time||'--:--'}</div>
+      <div class="les-time">${l.time||'--:--'}<br><span style="font-size:9px;color:var(--tx3)">${l.period||''}</span></div>
       <div class="les-info">
-        <div class="les-name">${l.grade} ${l.cls} <span class="badge">${l.subject}</span></div>
+        <div class="les-name">${l.grade} ${l.cls} <span class="badge">${l.subject}</span>
+          <span style="background:${targetColor[l.target||'all']};padding:1px 6px;border-radius:20px;font-size:9px;margin-left:3px">${targetLabel[l.target||'all']}</span>
+        </div>
         <div class="les-sub">${l.teacher} · ${l.room||'교실'}</div>
       </div>
       ${l.driveUrl?`<a href="${l.driveUrl}" target="_blank" style="font-size:10px;color:var(--vt3);text-decoration:none;background:var(--wh);padding:3px 7px;border-radius:5px;border:1px solid var(--bd);white-space:nowrap;flex-shrink:0">📄 지도안</a>`:''}
@@ -529,10 +545,15 @@ function rLessons() {
   const el = document.getElementById('lesson-list');
   document.getElementById('btn-add-wrap').style.display = S.mode==='admin'?'block':'none';
   if(!DB.lessons.length) { el.innerHTML='<div style="text-align:center;padding:26px;color:var(--tx3);font-size:12px">등록된 지도안 없음</div>'; return; }
+  const tColor = {parent:'var(--pk)',peer:'var(--yw)',all:'var(--mint)'};
+  const tLabel = {parent:'👨‍👩‍👧 학부모',peer:'👩‍🏫 동료장학',all:'🌸 전체'};
   el.innerHTML = DB.lessons.map(l=>`
     <div class="card" style="margin-bottom:9px">
-      <div style="font-size:12px;font-weight:700">${l.teacher} — ${l.grade} ${l.cls}</div>
-      <div style="font-size:10px;color:var(--tx2);margin-top:3px"><span class="badge">${l.subject}</span> ⏰${l.time||'미정'} 🏫${l.room||'교실'}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:12px;font-weight:700">${l.teacher} — ${l.grade} ${l.cls}</div>
+        <span style="background:${tColor[l.target||'all']};padding:2px 8px;border-radius:20px;font-size:10px">${tLabel[l.target||'all']}</span>
+      </div>
+      <div style="font-size:10px;color:var(--tx2);margin-top:3px"><span class="badge">${l.subject}</span> ⏰${l.time||'미정'} ${l.period||''} 🏫${l.room||'교실'}</div>
       <div style="font-size:11px;color:var(--tx2);margin-top:4px"><b>단원:</b> ${l.unit}</div>
       <div style="display:flex;gap:7px;margin-top:9px">
         ${l.driveUrl?`<a href="${l.driveUrl}" target="_blank" class="btn bs bsm" style="text-decoration:none"><i class="ti ti-file-type-pdf"></i> 지도안 보기</a>`:''}
@@ -574,9 +595,11 @@ function renderObsForm() {
     return '';
   }).join('');
 
-  // 수업 선택 옵션 채우기
+  // 수업 선택 옵션 채우기 - 참관자 유형에 맞는 수업만
+  const obsType = document.querySelector('input[name="obs-type"]:checked')?.value || 'parent';
   const sel = document.getElementById('obs-lesson');
-  sel.innerHTML = '<option value="">수업 선택 (선택사항)</option>' + DB.lessons.map(l=>`<option value="${l.id}">${l.grade} ${l.cls} ${l.subject} - ${l.teacher}</option>`).join('');
+  const filtered = DB.lessons.filter(l=>!l.target||l.target==='all'||(l.target===obsType));
+  sel.innerHTML = '<option value="">수업 선택 (선택사항)</option>' + filtered.map(l=>`<option value="${l.id}">${l.grade} ${l.cls} ${l.subject} ${l.period||''} - ${l.teacher}</option>`).join('');
 }
 
 // ── 양식 편집기 ──
@@ -795,9 +818,12 @@ async function addLesson() {
   const st=document.getElementById('add-status');
   btn.disabled=true; st.textContent='저장 중...'; st.style.color='var(--tx3)';
   try{
+    const target = document.querySelector('input[name="lf-target"]:checked')?.value || 'all';
     const ref = await fbAdd('lessons', {
+      target,
       teacher:t,grade:g,cls:c,subject:sub,unit:u,
       time:document.getElementById('lf-tm').value,
+      period:document.getElementById('lf-period').value,
       room:document.getElementById('lf-r').value,
       driveUrl:(document.getElementById('lf-drive').value||'').trim(),
       createdAt: new Date().toISOString()
@@ -885,13 +911,28 @@ function rmFormItem(idx) {
 
 // ── QR ──
 function makeQR() {
-  const url = APP_URL;
+  let url = APP_URL;
+  if(S.qrMode==='parent') url += '?type=parent';
+  else if(S.qrMode==='peer') url += '?type=peer';
   const box = document.getElementById('qr-box'); box.innerHTML='';
   QRCode.toCanvas(document.createElement('canvas'),url,{width:190,margin:2,errorCorrectionLevel:'M',color:{dark:'#200C3C',light:'#fff'}},(err,canvas)=>{
     if(err){box.textContent='QR 실패';return;}
     box.appendChild(canvas);
-    document.getElementById('qr-url').textContent = url.length>55?url.slice(0,55)+'...':url;
+    document.getElementById('qr-url').textContent = url.length>60?url.slice(0,60)+'...':url;
   });
+}
+
+function swQR(mode) {
+  S.qrMode = mode;
+  ['all','parent','peer'].forEach(k=>{
+    const b = document.getElementById('qt-'+k);
+    if(b){
+      b.style.background = k===mode?'var(--vt)':'var(--wh)';
+      b.style.color = k===mode?'var(--vt3)':'var(--tx2)';
+      b.style.borderColor = k===mode?'var(--vt3)':'var(--bd)';
+    }
+  });
+  makeQR();
 }
 
 function shareURL() {
@@ -955,6 +996,7 @@ document.querySelectorAll('input[name="obs-type"]').forEach(r=>{
     const isParent = r.value==='parent';
     document.getElementById('wrap-grade').style.display = isParent?'block':'none';
     document.getElementById('wrap-org').style.display = isParent?'none':'block';
+    renderObsForm(); // 수업 선택 목록 업데이트
   });
 });
 
@@ -981,6 +1023,9 @@ document.getElementById('btn-obs-close').addEventListener('click',()=>cm('ov-obs
 document.getElementById('btn-obs-prt').addEventListener('click',()=>{const o=DB.obs.find(x=>x.id===S.curId);if(o){cm('ov-obs');setTimeout(()=>doPrint([o]),300);}});
 document.getElementById('btn-regen-qr').addEventListener('click',makeQR);
 document.getElementById('btn-share-qr').addEventListener('click',shareURL);
+document.getElementById('qt-all').addEventListener('click',()=>swQR('all'));
+document.getElementById('qt-parent').addEventListener('click',()=>swQR('parent'));
+document.getElementById('qt-peer').addEventListener('click',()=>swQR('peer'));
 document.getElementById('btn-add-text').addEventListener('click',()=>addFormItem('text'));
 document.getElementById('btn-add-long').addEventListener('click',()=>addFormItem('long'));
 document.getElementById('btn-add-grid').addEventListener('click',()=>addFormItem('grid'));
@@ -1008,15 +1053,26 @@ document.body.addEventListener('click',e=>{
 });
 
 // ── Google Auth 상태 감지 ──
+// URL 파라미터로 참관자 유형 자동 설정
+const urlType = new URLSearchParams(location.search).get('type');
+if(urlType) {
+  document.querySelectorAll('input[name="obs-type"]').forEach(r=>{ r.checked = r.value===urlType; });
+}
+
 onAuthStateChanged(auth, async (user) => {
   if(user) {
     currentUser = user;
-    // 이메일로 학교 ID 생성 (@ 앞부분 + 도메인 해시)
     currentSchoolId = user.email.replace(/[^a-zA-Z0-9]/g,'_');
     cm('ov-google-login');
     await init();
     makeQR();
-    toast(`✅ ${user.displayName||user.email} 로그인`);
+    // URL 파라미터로 참관록 탭 자동 이동
+    if(urlType) {
+      go('observe');
+      document.getElementById('nb-observe').classList.add('on');
+      document.getElementById('nb-home').classList.remove('on');
+    }
+    toast('✅ '+( user.displayName||user.email)+' 로그인');
   } else {
     om('ov-google-login');
   }
