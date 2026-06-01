@@ -689,6 +689,9 @@ async function submitObs() {
   try {
     document.getElementById('btn-submit').disabled = true;
     document.getElementById('btn-submit').innerHTML = '<i class="ti ti-loader-2"></i> 제출 중...';
+    // 로그인 없을 때 URL의 school 파라미터 사용
+    const schoolId = currentSchoolId || new URLSearchParams(location.search).get('school') || 'default';
+    if(!currentSchoolId) currentSchoolId = schoolId;
     await fbAdd('observations', obsData);
     toast('✅ 참관록이 제출되었습니다! 감사합니다 🌸');
     // 폼 초기화
@@ -993,8 +996,11 @@ function rmFormItem(idx) {
 // ── QR ──
 function makeQR() {
   let url = APP_URL;
-  if(S.qrMode==='parent') url += '?type=parent';
-  else if(S.qrMode==='peer') url += '?type=peer';
+  // school 파라미터 포함 (로그인 없이도 지도안 로드 가능)
+  const schoolParam = currentSchoolId ? 'school='+currentSchoolId : '';
+  if(S.qrMode==='parent') url += '?' + schoolParam + '&type=parent';
+  else if(S.qrMode==='peer') url += '?' + schoolParam + '&type=peer';
+  else if(schoolParam) url += '?' + schoolParam;
   const box = document.getElementById('qr-box'); box.innerHTML='';
   QRCode.toCanvas(document.createElement('canvas'),url,{width:190,margin:2,errorCorrectionLevel:'M',color:{dark:'#200C3C',light:'#fff'}},(err,canvas)=>{
     if(err){box.textContent='QR 실패';return;}
@@ -1097,7 +1103,15 @@ document.querySelectorAll('input[name="obs-type"]').forEach(r=>{
 // ── 이벤트 연결 ──
 document.getElementById('btn-mode').addEventListener('click',()=>om('ov-mode'));
 document.getElementById('btn-visitor-mode').addEventListener('click',()=>{setMode('visitor');cm('ov-mode');});
-document.getElementById('btn-admin-mode').addEventListener('click',()=>{cm('ov-mode');om('ov-pw');});
+document.getElementById('btn-admin-mode').addEventListener('click',()=>{
+  cm('ov-mode');
+  if(!currentUser) {
+    // 로그인 안 됐으면 Google 로그인 먼저
+    om('ov-google-login');
+  } else {
+    om('ov-pw');
+  }
+});
 document.getElementById('btn-close-mode').addEventListener('click',()=>cm('ov-mode'));
 document.getElementById('btn-pw-cancel').addEventListener('click',()=>cm('ov-pw'));
 document.getElementById('btn-pw-ok').addEventListener('click',checkPw);
@@ -1169,21 +1183,37 @@ onAuthStateChanged(auth, async (user) => {
     cm('ov-google-login');
     await init();
     makeQR();
-    // URL 파라미터로 참관록 탭 자동 이동
     if(urlType) {
       go('observe');
       document.getElementById('nb-observe').classList.add('on');
       document.getElementById('nb-home').classList.remove('on');
     }
-    toast('✅ '+( user.displayName||user.email)+' 로그인');
+    toast('✅ '+(user.displayName||user.email)+' 로그인');
     const emailEl = document.getElementById('current-user-email');
     if(emailEl) emailEl.textContent = '로그인: ' + (user.displayName||user.email);
   } else {
-    om('ov-google-login');
+    // 로그인 안 해도 참관자 모드로 바로 시작
+    cm('ov-google-login');
+    // 지도안은 URL 파라미터의 schoolId로 로드
+    const urlSchool = new URLSearchParams(location.search).get('school');
+    if(urlSchool) {
+      currentSchoolId = urlSchool;
+      await init();
+    }
+    makeQR();
+    if(urlType) {
+      go('observe');
+      document.getElementById('nb-observe').classList.add('on');
+      document.getElementById('nb-home').classList.remove('on');
+    }
   }
 });
 
-document.getElementById('btn-google-login').addEventListener('click', googleLogin);
+document.getElementById('btn-google-login').addEventListener('click', async () => {
+  await googleLogin();
+  // 로그인 완료 후 관리자 비번 입력으로
+  setTimeout(()=>{ if(currentUser) om('ov-pw'); }, 1500);
+});
 </script>
 </body>
 </html>
