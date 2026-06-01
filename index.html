@@ -493,30 +493,65 @@ async function googleLogout() {
 // ── 초기 로드 ──
 async function init() {
   try {
+    // Firebase REST API로 읽기 (로그인 불필요)
+    const proj = 'cham-new-b5bf4';
+    const base = `https://firestore.googleapis.com/v1/projects/${proj}/databases/(default)/documents`;
+    const school = currentSchoolId || 'default';
+
     // 학교 정보
-    const info = await fbGet('config/info');
-    if(info) DB.info = {...DB.info,...info};
+    try {
+      const r1 = await fetch(`${base}/schools/${school}/config/info`);
+      if(r1.ok) { const d=await r1.json(); if(d.fields) DB.info={...DB.info,...firestoreToObj(d.fields)}; }
+    } catch(e){}
 
     // 비밀번호
-    const pw = await fbGet('config/auth');
-    if(pw && pw.adminPw) DB.adminPw = pw.adminPw;
+    try {
+      const r2 = await fetch(`${base}/schools/${school}/config/auth`);
+      if(r2.ok) { const d=await r2.json(); if(d.fields&&d.fields.adminPw) DB.adminPw=d.fields.adminPw.stringValue||'1234'; }
+    } catch(e){}
 
     // 참관록 양식
-    const form = await fbGet('config/form');
-    DB.formItems = (form && form.items && form.items.length) ? form.items : DEFAULT_FORM;
+    try {
+      const r3 = await fetch(`${base}/schools/${school}/config/form`);
+      if(r3.ok) { const d=await r3.json(); if(d.fields&&d.fields.items) DB.formItems=JSON.parse(d.fields.items.stringValue||'[]'); }
+    } catch(e){}
+    if(!DB.formItems||!DB.formItems.length) DB.formItems = DEFAULT_FORM;
 
-    // 지도안
-    DB.lessons = await fbList('lessons', 'time');
+    // 지도안 - REST API (로그인 없이 읽기 가능)
+    try {
+      const r4 = await fetch(`${base}/schools/${school}/lessons`);
+      if(r4.ok) {
+        const d=await r4.json();
+        DB.lessons = (d.documents||[]).map(doc=>{
+          const id = doc.name.split('/').pop();
+          return {id, ...firestoreToObj(doc.fields||{})};
+        }).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+      }
+    } catch(e){ console.log('지도안 로드 오류',e); }
 
     renderAll();
     renderObsForm();
-    toast('✅ 로드 완료');
+    if(currentUser && !currentUser.isAnonymous) toast('✅ 로드 완료');
   } catch(e) {
     console.error('초기화 실패', e);
     DB.formItems = DEFAULT_FORM;
     renderAll();
     renderObsForm();
   }
+}
+
+// Firestore REST 응답 → 일반 객체 변환
+function firestoreToObj(fields) {
+  const obj = {};
+  for(const [k,v] of Object.entries(fields)) {
+    if(v.stringValue !== undefined) obj[k] = v.stringValue;
+    else if(v.integerValue !== undefined) obj[k] = v.integerValue;
+    else if(v.booleanValue !== undefined) obj[k] = v.booleanValue;
+    else if(v.arrayValue) obj[k] = (v.arrayValue.values||[]).map(x=>x.stringValue||x.integerValue||'');
+    else if(v.mapValue) obj[k] = firestoreToObj(v.mapValue.fields||{});
+    else obj[k] = '';
+  }
+  return obj;
 }
 
 // ── 렌더링 ──
