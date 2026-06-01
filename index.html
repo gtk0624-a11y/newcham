@@ -1245,40 +1245,27 @@ if(urlType) {
 
 onAuthStateChanged(auth, async (user) => {
   if(user) {
-    currentUser = user;
-    // 익명 로그인이면 URL school 파라미터 사용, 구글 로그인이면 이메일 사용
-    if(user.isAnonymous) {
-      // currentSchoolId는 이미 urlSchoolId로 설정됨
-      cm('ov-google-login');
-      await init();
-      makeQR();
-      if(urlType) {
-        go('observe');
-        document.getElementById('nb-observe').classList.add('on');
-        document.getElementById('nb-home').classList.remove('on');
-      }
-    } else {
+    if(!user.isAnonymous) {
+      currentUser = user;
       currentSchoolId = user.email.replace(/[^a-zA-Z0-9]/g,'_');
-      cm('ov-google-login');
-      await init();
-      makeQR();
-      if(urlType) {
-        go('observe');
-        document.getElementById('nb-observe').classList.add('on');
-        document.getElementById('nb-home').classList.remove('on');
-      }
       toast('✅ '+(user.displayName||user.email)+' 로그인');
       const emailEl = document.getElementById('current-user-email');
       if(emailEl) emailEl.textContent = '로그인: ' + (user.displayName||user.email);
     }
+    cm('ov-google-login');
+    await init();
+    makeQR();
+    if(urlType) {
+      go('observe');
+      document.getElementById('nb-observe').classList.add('on');
+      document.getElementById('nb-home').classList.remove('on');
+    }
   } else {
-    // 로그인 안 된 경우 - 익명 로그인으로 Firebase 접근
     if(currentSchoolId) {
       try {
         await signInAnonymously(auth);
-        // 익명 로그인 후 onAuthStateChanged 다시 실행됨
       } catch(e) {
-        // 익명 로그인 실패시 직접 로드 시도
+        console.error('익명 로그인 실패:', e);
         cm('ov-google-login');
         await init();
         makeQR();
