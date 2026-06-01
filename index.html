@@ -440,6 +440,18 @@ const DB = {
 };
 
 // 기본 참관록 양식
+const DEFAULT_FORM_PARENT = [
+  {type:'grid', title:'자녀의 학습 준비도 및 학습 활동', rows:['내 자녀는 선생님의 말씀에 귀 기울여 듣습니까?','내 자녀는 교사와 눈 맞춤을 하며 주의 집중을 잘하고 있습니까?','교사의 안내와 지시에 적절히 따릅니까?','학습에 임하는 태도가 능동적입니까?','내 자녀는 학습 시 자신의 생각을 적극적으로 발표합니까?','바른 자세를 유지하며 스스로 학습 활동에 참여하고 있습니까?','기본 학습 자료와 학습 도구가 준비되어 있습니까?'], cols:['5 매우그렇다','4 그렇다','3 보통이다','2 그렇지않다','1 전혀그렇지않다']},
+  {type:'grid', title:'자녀의 사회 적응도', rows:['친구가 발표할 때 귀 기울여 경청합니까?','학습 활동 시 타인을 배려하며 협동합니까?','친구의 발표 시 격려하며 협동합니까?'], cols:['5 매우그렇다','4 그렇다','3 보통이다','2 그렇지않다','1 전혀그렇지않다']},
+  {type:'long', title:'참관 소감', placeholder:'수업을 참관하시면서 느끼신 점을 자유롭게 적어주세요.'}
+];
+
+const DEFAULT_FORM_PEER = [
+  {type:'long', title:'좋았던 점', placeholder:'수업에서 좋았던 점을 적어주세요.'},
+  {type:'long', title:'내 수업에 활용하고 싶은 점', placeholder:'내 수업에 활용하고 싶은 점을 적어주세요.'},
+  {type:'long', title:'종합 의견', placeholder:'종합적인 의견을 적어주세요.'}
+];
+
 const DEFAULT_FORM = [
   {type:'grid', title:'자녀의 학습 준비도 및 학습 활동', rows:['내 자녀는 선생님의 말씀에 귀 기울여 듣습니까?','내 자녀는 교사와 눈 맞춤을 하며 주의 집중을 잘하고 있습니까?','교사의 안내와 지시에 적절히 따릅니까?','학습에 임하는 태도가 능동적입니까?','내 자녀는 학습 시 자신의 생각을 적극적으로 발표합니까?','바른 자세를 유지하며 스스로 학습 활동에 참여하고 있습니까?','기본 학습 자료와 학습 도구가 준비되어 있습니까?'], cols:['5 매우그렇다','4 그렇다','3 보통이다','2 그렇지않다','1 전혀그렇지않다']},
   {type:'grid', title:'자녀의 사회 적응도', rows:['친구가 발표할 때 귀 기울여 경청합니까?','학습 활동 시 타인을 배려하며 협동합니까?','친구의 발표 시 격려하며 협동합니까?'], cols:['5 매우그렇다','4 그렇다','3 보통이다','2 그렇지않다','1 전혀그렇지않다']},
@@ -646,6 +658,16 @@ function renderObsForm() {
 
   // 참관자 유형 + 수업 선택 목록 채우기
   const obsType = document.querySelector('input[name="obs-type"]:checked')?.value || 'parent';
+  
+  // 양식이 기본값이면 참관자 유형에 맞게 교체
+  const isDefaultParent = JSON.stringify(DB.formItems) === JSON.stringify(DEFAULT_FORM) || 
+                          JSON.stringify(DB.formItems) === JSON.stringify(DEFAULT_FORM_PARENT);
+  const isDefaultPeer = JSON.stringify(DB.formItems) === JSON.stringify(DEFAULT_FORM_PEER);
+  if(obsType === 'peer' && (isDefaultParent || DB.formItems.length === 0)) {
+    DB.formItems = DEFAULT_FORM_PEER;
+  } else if(obsType === 'parent' && (isDefaultPeer || DB.formItems.length === 0)) {
+    DB.formItems = DEFAULT_FORM_PARENT;
+  }
   const sel = document.getElementById('obs-lesson');
   if(sel) {
     const filtered = DB.lessons.filter(l=>!l.target||l.target==='all'||(l.target===obsType));
@@ -1131,7 +1153,9 @@ document.querySelectorAll('input[name="obs-type"]').forEach(r=>{
     const isParent = r.value==='parent';
     document.getElementById('wrap-grade').style.display = isParent?'block':'none';
     document.getElementById('wrap-org').style.display = isParent?'none':'block';
-    renderObsForm(); // 수업 선택 목록 업데이트
+    // 유형 변경시 양식 초기화 후 다시 렌더링
+    DB.formItems = isParent ? DEFAULT_FORM_PARENT : DEFAULT_FORM_PEER;
+    renderObsForm();
   });
 });
 
