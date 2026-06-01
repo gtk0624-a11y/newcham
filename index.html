@@ -410,7 +410,7 @@ html,body{height:100%;font-family:'Noto Sans KR',sans-serif;background:#F8F4FF;c
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, doc, getDoc, setDoc, addDoc, collection, getDocs, deleteDoc, query, orderBy, where } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getAuth, signInWithPopup, signInAnonymously, GoogleAuthProvider, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCmb2LEfnANi-I7JAZcOeeb7RgSM4uHzBs",
@@ -1187,29 +1187,45 @@ if(urlType) {
 onAuthStateChanged(auth, async (user) => {
   if(user) {
     currentUser = user;
-    currentSchoolId = user.email.replace(/[^a-zA-Z0-9]/g,'_');
-    cm('ov-google-login');
-    await init();
-    makeQR();
-    if(urlType) {
-      go('observe');
-      document.getElementById('nb-observe').classList.add('on');
-      document.getElementById('nb-home').classList.remove('on');
-    }
-    toast('✅ '+(user.displayName||user.email)+' 로그인');
-    const emailEl = document.getElementById('current-user-email');
-    if(emailEl) emailEl.textContent = '로그인: ' + (user.displayName||user.email);
-  } else {
-    // 로그인 안 해도 참관자 모드로 바로 시작
-    cm('ov-google-login');
-    if(currentSchoolId) {
+    // 익명 로그인이면 URL school 파라미터 사용, 구글 로그인이면 이메일 사용
+    if(user.isAnonymous) {
+      // currentSchoolId는 이미 urlSchoolId로 설정됨
+      cm('ov-google-login');
       await init();
+      makeQR();
+      if(urlType) {
+        go('observe');
+        document.getElementById('nb-observe').classList.add('on');
+        document.getElementById('nb-home').classList.remove('on');
+      }
+    } else {
+      currentSchoolId = user.email.replace(/[^a-zA-Z0-9]/g,'_');
+      cm('ov-google-login');
+      await init();
+      makeQR();
+      if(urlType) {
+        go('observe');
+        document.getElementById('nb-observe').classList.add('on');
+        document.getElementById('nb-home').classList.remove('on');
+      }
+      toast('✅ '+(user.displayName||user.email)+' 로그인');
+      const emailEl = document.getElementById('current-user-email');
+      if(emailEl) emailEl.textContent = '로그인: ' + (user.displayName||user.email);
     }
-    makeQR();
-    if(urlType) {
-      go('observe');
-      document.getElementById('nb-observe').classList.add('on');
-      document.getElementById('nb-home').classList.remove('on');
+  } else {
+    // 로그인 안 된 경우 - 익명 로그인으로 Firebase 접근
+    if(currentSchoolId) {
+      try {
+        await signInAnonymously(auth);
+        // 익명 로그인 후 onAuthStateChanged 다시 실행됨
+      } catch(e) {
+        // 익명 로그인 실패시 직접 로드 시도
+        cm('ov-google-login');
+        await init();
+        makeQR();
+      }
+    } else {
+      om('ov-google-login');
     }
   }
 });
