@@ -1170,8 +1170,28 @@ document.body.addEventListener('click',e=>{
 });
 
 // ── Google Auth 상태 감지 ──
-// URL 파라미터로 참관자 유형 자동 설정
-const urlType = new URLSearchParams(location.search).get('type');
+// URL 파라미터로 참관자 유형 + 학교ID 즉시 설정
+const urlParams = new URLSearchParams(location.search);
+const urlType = urlParams.get('type');
+const urlSchoolId = urlParams.get('school');
+
+// 비로그인 참관자: URL에 school 파라미터 있으면 즉시 로드
+if(urlSchoolId && !currentSchoolId) {
+  currentSchoolId = urlSchoolId;
+  // Firebase 초기화 완료 후 즉시 데이터 로드
+  setTimeout(async () => {
+    try {
+      const info = await fbGet('config/info');
+      if(info) DB.info = {...DB.info,...info};
+      const form = await fbGet('config/form');
+      DB.formItems = (form && form.items && form.items.length) ? form.items : DEFAULT_FORM;
+      DB.lessons = await fbList('lessons','time');
+      renderAll();
+      renderObsForm();
+    } catch(e) { console.log('비로그인 로드:', e); }
+  }, 800);
+}
+
 if(urlType) {
   document.querySelectorAll('input[name="obs-type"]').forEach(r=>{ r.checked = r.value===urlType; });
 }
@@ -1194,12 +1214,6 @@ onAuthStateChanged(auth, async (user) => {
   } else {
     // 로그인 안 해도 참관자 모드로 바로 시작
     cm('ov-google-login');
-    // 지도안은 URL 파라미터의 schoolId로 로드
-    const urlSchool = new URLSearchParams(location.search).get('school');
-    if(urlSchool) {
-      currentSchoolId = urlSchool;
-      await init();
-    }
     makeQR();
     if(urlType) {
       go('observe');
